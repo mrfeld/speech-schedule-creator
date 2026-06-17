@@ -1,9 +1,17 @@
 student_name,push_in_individual,push_in_group,pull_out_individual,pull_out_group,max_group_size
 Alice,0,2,1,0,3
 Bob,0,2,1,0,3
+Isabella,1,2,0,0,3
 Carol,1,0,0,2,3
+James,0,2,1,0,3
 David,0,0,1,2,4
 Emma,0,0,1,2,4
+Kate,0,0,1,2,4
 Frank,0,0,0,3,3
 Grace,0,0,0,3,3
+Liam,0,0,0,3,3
+Maya,1,0,0,2,4
+Noah,0,0,1,2,4
 Henry,1,0,1,0,2
+Olivia,1,0,1,0,2
+Peter,0,0,1,2,3
