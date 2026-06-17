@@ -75,19 +75,22 @@ Pairs of students who must never be in the same group session.
 - 1 **Lunch** — automatically placed in Period 4, 5, or 6
 - 2 **Prep/Admin** — placed in any period
 
-The algorithm chooses *which* periods to block to maximize schedulable student sessions (fewest conflicts). All remaining periods are filled.
+The algorithm chooses *which* periods to block to maximize schedulable student sessions (fewest conflicts).
 
 ### Group formation
 Groups are formed separately for push-in and pull-out:
 - **Pull-out groups**: students with `pull_out_group > 0`, sorted and clustered by grade → shared goal category → goal level. Exclusion pairs and `max_group_size` are enforced.
 - **Push-in groups**: students with `push_in_group > 0` who share the same `class_id` (they must be in the same classroom). Same exclusion/size rules apply.
 
+### Scheduling constraints
+- Each student must be assigned **exactly** the number of sessions specified in `requirements.csv` — no more, no less.
+- Each student may have **at most one session per day** across all session types.
+
 ### Scheduling order (most constrained first)
 1. Push-in group sessions
 2. Pull-out group sessions
 3. Push-in individual sessions
 4. Pull-out individual sessions
-5. Fill all remaining open teacher periods — extras spread evenly across students, prioritizing anyone still under their required minimum
 
 ### Session type tags in output
 | Tag | Meaning |

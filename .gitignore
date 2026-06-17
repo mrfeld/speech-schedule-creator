@@ -1,0 +1,3 @@
+__pycache__/
+*.pyc
+data/schedule_output.csv

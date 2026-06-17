@@ -35,9 +35,9 @@ def choose_teacher_off_periods(
             for prep1, prep2 in combinations(remaining, 2):
                 blocked_periods = {lunch_p, prep1, prep2}
                 preserved = sum(
-                    1 for p in periods
+                    sum(1 for busy in busy_slots.values() if (day, p) not in busy)
+                    for p in periods
                     if p not in blocked_periods
-                    and any((day, p) in (all_possible - busy) for busy in busy_slots.values())
                 )
                 if preserved > best_score:
                     best_score = preserved
@@ -63,12 +63,14 @@ def _common_free_slots(
     names: list[str],
     busy_slots: dict[str, set[tuple]],
     teacher_available: set[TimeSlot],
+    student_days: dict[str, set[str]] | None = None,
 ) -> list[TimeSlot]:
     result = []
     for slot in teacher_available:
         key = (slot.day, slot.period)
         if all(key not in busy_slots[n] for n in names):
-            result.append(slot)
+            if student_days is None or all(slot.day not in student_days.get(n, set()) for n in names):
+                result.append(slot)
     return result
 
 
@@ -76,13 +78,15 @@ def _common_push_in_slots(
     names: list[str],
     push_in_slots: dict[str, dict[tuple, str]],
     teacher_available: set[TimeSlot],
+    student_days: dict[str, set[str]] | None = None,
 ) -> list[tuple[TimeSlot, str]]:
     result = []
     for slot in teacher_available:
         key = (slot.day, slot.period)
         class_names = [push_in_slots[n].get(key) for n in names]
         if all(c is not None for c in class_names) and len(set(class_names)) == 1:
-            result.append((slot, class_names[0]))
+            if student_days is None or all(slot.day not in student_days.get(n, set()) for n in names):
+                result.append((slot, class_names[0]))
     return result
 
 
@@ -97,10 +101,18 @@ def _pick_slots(
     day_counts: dict[str, int],
     used_slots: set[TimeSlot],
 ) -> list[TimeSlot]:
-    """Pick `count` slots from available, preferring spread across days, avoiding used_slots."""
+    """Pick `count` slots from available, one per day, preferring days with fewer sessions."""
     candidates = [s for s in available if s not in used_slots]
     candidates.sort(key=lambda s: _spread_score(s, day_counts))
-    return candidates[:count]
+    picked: list[TimeSlot] = []
+    picked_days: set[str] = set()
+    for s in candidates:
+        if s.day not in picked_days:
+            picked.append(s)
+            picked_days.add(s.day)
+            if len(picked) == count:
+                break
+    return picked
 
 
 def _pick_push_in_slots(
@@ -111,7 +123,15 @@ def _pick_push_in_slots(
 ) -> list[tuple[TimeSlot, str]]:
     candidates = [(s, c) for s, c in available if s not in used_slots]
     candidates.sort(key=lambda x: _spread_score(x[0], day_counts))
-    return candidates[:count]
+    picked: list[tuple[TimeSlot, str]] = []
+    picked_days: set[str] = set()
+    for s, c in candidates:
+        if s.day not in picked_days:
+            picked.append((s, c))
+            picked_days.add(s.day)
+            if len(picked) == count:
+                break
+    return picked
 
 
 def build_schedule(
@@ -138,6 +158,7 @@ def build_schedule(
     unscheduled: list[str] = []
     used_slots: set[TimeSlot] = set(teacher_blocked)
     day_counts: dict[str, int] = defaultdict(int)
+    student_days: dict[str, set[str]] = defaultdict(set)
 
     # Track how many required sessions each student still needs scheduled
     remaining: dict[str, dict[str, int]] = {}
@@ -154,6 +175,7 @@ def build_schedule(
         used_slots.add(slot)
         day_counts[slot.day] += 1
         for n in names:
+            student_days[n].add(slot.day)
             if stype in remaining.get(n, {}):
                 remaining[n][stype] = max(0, remaining[n][stype] - 1)
 
@@ -167,7 +189,7 @@ def build_schedule(
     for group in push_in_groups:
         names = group.students
         needed = min(requirements[n].push_in_group for n in names)
-        available = _common_push_in_slots(names, push_in_slots, teacher_available)
+        available = _common_push_in_slots(names, push_in_slots, teacher_available, student_days)
         picks = _pick_push_in_slots(available, needed, day_counts, used_slots)
         for slot, cls in picks:
             schedule_session(slot, names, SESSION_PUSH_IN_GROUP, cls)
@@ -179,7 +201,7 @@ def build_schedule(
     for group in pull_out_groups:
         names = group.students
         needed = min(requirements[n].pull_out_group for n in names)
-        available = _common_free_slots(names, busy_slots, teacher_available)
+        available = _common_free_slots(names, busy_slots, teacher_available, student_days)
         picks = _pick_slots(available, needed, day_counts, used_slots)
         for slot in picks:
             schedule_session(slot, names, SESSION_PULL_OUT_GROUP)
@@ -191,13 +213,14 @@ def build_schedule(
     push_in_indiv_students = sorted(
         [n for n, req in requirements.items() if req.push_in_individual > 0],
         key=lambda n: len([s for s in teacher_available
-                           if (s.day, s.period) in push_in_slots[n]])
+                           if (s.day, s.period) in push_in_slots[n]
+                           and s.day not in student_days.get(n, set())])
     )
     if rng:
         rng.shuffle(push_in_indiv_students)
     for name in push_in_indiv_students:
         needed = remaining[name][SESSION_PUSH_IN_INDIVIDUAL]
-        available = _common_push_in_slots([name], push_in_slots, teacher_available)
+        available = _common_push_in_slots([name], push_in_slots, teacher_available, student_days)
         picks = _pick_push_in_slots(available, needed, day_counts, used_slots)
         for slot, cls in picks:
             schedule_session(slot, [name], SESSION_PUSH_IN_INDIVIDUAL, cls)
@@ -209,13 +232,14 @@ def build_schedule(
     pull_out_indiv_students = sorted(
         [n for n, req in requirements.items() if req.pull_out_individual > 0],
         key=lambda n: len([s for s in teacher_available
-                           if (s.day, s.period) not in busy_slots[n]])
+                           if (s.day, s.period) not in busy_slots[n]
+                           and s.day not in student_days.get(n, set())])
     )
     if rng:
         rng.shuffle(pull_out_indiv_students)
     for name in pull_out_indiv_students:
         needed = remaining[name][SESSION_PULL_OUT_INDIVIDUAL]
-        available = _common_free_slots([name], busy_slots, teacher_available)
+        available = _common_free_slots([name], busy_slots, teacher_available, student_days)
         picks = _pick_slots(available, needed, day_counts, used_slots)
         for slot in picks:
             schedule_session(slot, [name], SESSION_PULL_OUT_INDIVIDUAL)
@@ -241,14 +265,17 @@ def build_schedule(
         key: tuple,
         pi_slots: dict | None = None,
     ) -> list[str]:
-        """Return members of group_members who have remaining requirements of stype and are free."""
+        """Return members of group_members who have remaining requirements of stype, are free at key, and have no session that day yet."""
+        day = key[0]
         if pi_slots is not None:
             return [m for m in group_members
                     if remaining.get(m, {}).get(stype, 0) > 0
-                    and key in pi_slots.get(m, {})]
+                    and key in pi_slots.get(m, {})
+                    and day not in student_days.get(m, set())]
         return [m for m in group_members
                 if remaining.get(m, {}).get(stype, 0) > 0
-                and key not in busy_slots.get(m, set())]
+                and key not in busy_slots.get(m, set())
+                and day not in student_days.get(m, set())]
 
     open_slots = sorted(
         [s for s in teacher_available if s not in used_slots],
@@ -300,6 +327,7 @@ def build_schedule(
             n for n in students
             if remaining.get(n, {}).get(SESSION_PULL_OUT_INDIVIDUAL, 0) > 0
             and key not in busy_slots.get(n, set())
+            and slot.day not in student_days.get(n, set())
         ]
         if po_indiv:
             schedule_session(slot, [po_indiv[0]], SESSION_PULL_OUT_INDIVIDUAL)
@@ -311,12 +339,12 @@ def build_schedule(
             for n in students
             if remaining.get(n, {}).get(SESSION_PUSH_IN_INDIVIDUAL, 0) > 0
             and key in push_in_slots.get(n, {})
+            and slot.day not in student_days.get(n, set())
         ]
         if pi_indiv:
             name, cls = pi_indiv[0]
             schedule_session(slot, [name], SESSION_PUSH_IN_INDIVIDUAL, cls)
             continue
-        # No student has remaining requirements for this slot — leave it empty.
 
     for slot in lunch_slots:
         sessions.append(ScheduledSession(slot=slot, students=[], session_type="LUNCH"))

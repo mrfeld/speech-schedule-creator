@@ -199,3 +199,83 @@ class_id,day,period,class_name
 6A,Friday,6,ELA
 6A,Friday,7,Gym
 6A,Friday,8,History
+7C,Monday,1,Math
+7C,Monday,2,ELA
+7C,Monday,3,Art
+7C,Monday,4,Lunch
+7C,Monday,5,History
+7C,Monday,6,Science
+7C,Monday,7,Social Studies
+7C,Monday,8,Gym
+7C,Tuesday,1,Science
+7C,Tuesday,2,Math
+7C,Tuesday,3,History
+7C,Tuesday,4,Lunch
+7C,Tuesday,5,ELA
+7C,Tuesday,6,Art
+7C,Tuesday,7,Gym
+7C,Tuesday,8,Social Studies
+7C,Wednesday,1,ELA
+7C,Wednesday,2,Gym
+7C,Wednesday,3,Science
+7C,Wednesday,4,Lunch
+7C,Wednesday,5,Social Studies
+7C,Wednesday,6,Math
+7C,Wednesday,7,Art
+7C,Wednesday,8,History
+7C,Thursday,1,Social Studies
+7C,Thursday,2,Art
+7C,Thursday,3,ELA
+7C,Thursday,4,Lunch
+7C,Thursday,5,Gym
+7C,Thursday,6,History
+7C,Thursday,7,Math
+7C,Thursday,8,Science
+7C,Friday,1,History
+7C,Friday,2,Social Studies
+7C,Friday,3,Math
+7C,Friday,4,Lunch
+7C,Friday,5,Art
+7C,Friday,6,Gym
+7C,Friday,7,Science
+7C,Friday,8,ELA
+6B,Monday,1,Math
+6B,Monday,2,ELA
+6B,Monday,3,Gym
+6B,Monday,4,Lunch
+6B,Monday,5,Science
+6B,Monday,6,History
+6B,Monday,7,Art
+6B,Monday,8,Social Studies
+6B,Tuesday,1,ELA
+6B,Tuesday,2,Science
+6B,Tuesday,3,Math
+6B,Tuesday,4,Lunch
+6B,Tuesday,5,Art
+6B,Tuesday,6,Gym
+6B,Tuesday,7,Social Studies
+6B,Tuesday,8,History
+6B,Wednesday,1,Social Studies
+6B,Wednesday,2,Math
+6B,Wednesday,3,ELA
+6B,Wednesday,4,Lunch
+6B,Wednesday,5,History
+6B,Wednesday,6,Science
+6B,Wednesday,7,Gym
+6B,Wednesday,8,Art
+6B,Thursday,1,History
+6B,Thursday,2,Gym
+6B,Thursday,3,Social Studies
+6B,Thursday,4,Lunch
+6B,Thursday,5,ELA
+6B,Thursday,6,Art
+6B,Thursday,7,Science
+6B,Thursday,8,Math
+6B,Friday,1,Art
+6B,Friday,2,History
+6B,Friday,3,Science
+6B,Friday,4,Lunch
+6B,Friday,5,Math
+6B,Friday,6,ELA
+6B,Friday,7,Social Studies
+6B,Friday,8,Gym
