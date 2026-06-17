@@ -12,12 +12,35 @@ def choose_teacher_off_periods(
     all_slots: list[TimeSlot],
     busy_slots: dict[str, set[tuple]],
     push_in_slots: dict[str, dict[tuple, str]],
+    requirements: dict[str, Requirement],
+    rng: random.Random | None = None,
 ) -> tuple[set[TimeSlot], set[TimeSlot]]:
     """Picks 3 blocked teacher periods per day (1 lunch in P4-6, 2 prep any).
-    Returns (lunch_slots, prep_slots)."""
+
+    The blocked set is chosen to preserve the periods with the most *session
+    demand* — i.e. open periods where students who still need pull-out are free,
+    or where students who need push-in have an eligible class. With ``rng`` set,
+    a near-best combo is sampled (rather than the single best) so retry attempts
+    explore different teacher schedules. Returns (lunch_slots, prep_slots)."""
+    # Students who actually need each session family — periods are only valuable
+    # to the extent that someone needing a session can use them.
+    pull_out_students = [
+        n for n, r in requirements.items()
+        if r.pull_out_individual + r.pull_out_group > 0
+    ]
+    push_in_students = [
+        n for n, r in requirements.items()
+        if r.push_in_individual + r.push_in_group > 0
+    ]
+
+    def period_demand(day: str, period: int) -> int:
+        key = (day, period)
+        po = sum(1 for n in pull_out_students if key not in busy_slots.get(n, set()))
+        pi = sum(1 for n in push_in_students if key in push_in_slots.get(n, {}))
+        return po + pi
+
     lunch_slots: set[TimeSlot] = set()
     prep_slots: set[TimeSlot] = set()
-    all_possible = {(slot.day, slot.period) for slot in all_slots}
 
     for day in DAYS:
         day_slots = [s for s in all_slots if s.day == day]
@@ -27,27 +50,36 @@ def choose_teacher_off_periods(
         if not lunch_options:
             lunch_options = [4]
 
-        best_combo = None
-        best_score = -1
+        demand = {p: period_demand(day, p) for p in periods}
 
+        scored: list[tuple[int, tuple[int, int, int]]] = []
         for lunch_p in lunch_options:
             remaining = [p for p in periods if p != lunch_p]
             for prep1, prep2 in combinations(remaining, 2):
                 blocked_periods = {lunch_p, prep1, prep2}
-                preserved = sum(
-                    sum(1 for busy in busy_slots.values() if (day, p) not in busy)
-                    for p in periods
-                    if p not in blocked_periods
-                )
-                if preserved > best_score:
-                    best_score = preserved
-                    best_combo = (lunch_p, prep1, prep2)
+                # Preserve as much demand as possible in the open (unblocked) periods.
+                preserved = sum(d for p, d in demand.items() if p not in blocked_periods)
+                scored.append((preserved, (lunch_p, prep1, prep2)))
 
-        if best_combo:
-            lunch_p, prep1, prep2 = best_combo
-            lunch_slots.add(TimeSlot(day=day, period=lunch_p))
-            prep_slots.add(TimeSlot(day=day, period=prep1))
-            prep_slots.add(TimeSlot(day=day, period=prep2))
+        if not scored:
+            continue
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        if rng is None:
+            best_combo = scored[0][1]
+        else:
+            # Sample among the top-tier combos so different attempts try different
+            # teacher schedules while staying near-optimal.
+            best_score = scored[0][0]
+            tier = [combo for score, combo in scored if score == best_score]
+            if len(tier) < 5:
+                tier = [combo for _, combo in scored[:5]]
+            best_combo = rng.choice(tier)
+
+        lunch_p, prep1, prep2 = best_combo
+        lunch_slots.add(TimeSlot(day=day, period=lunch_p))
+        prep_slots.add(TimeSlot(day=day, period=prep1))
+        prep_slots.add(TimeSlot(day=day, period=prep2))
 
     return lunch_slots, prep_slots
 
@@ -150,7 +182,9 @@ def build_schedule(
         for period in range(1, 9)
     ]
 
-    lunch_slots, prep_slots = choose_teacher_off_periods(all_slots, busy_slots, push_in_slots)
+    lunch_slots, prep_slots = choose_teacher_off_periods(
+        all_slots, busy_slots, push_in_slots, requirements, rng=rng
+    )
     teacher_blocked = lunch_slots | prep_slots
     teacher_available = {s for s in all_slots if s not in teacher_blocked}
 
