@@ -61,24 +61,25 @@ def _find_group(
     requirements: dict,
     available_slots: dict[str, set],
     count_attr: str,
-    prefer_same_count: bool,
 ) -> list[str] | None:
     """Find an existing group the candidate can join, or None.
 
-    When ``prefer_same_count`` is set, only groups whose members all require the
-    same number of group sessions as the candidate are considered. This is a soft
-    preference: callers try a same-count pass first, then fall back to any group.
+    Only groups whose members all require the same number of group sessions as the
+    candidate are considered, so differing counts are not mixed into one group.
+    Callers start a new group when this returns None. This keeps the "same number
+    of group sessions" property as a strong preference: it is honored whenever a
+    compatible same-count group has room and shared slots, and otherwise the
+    candidate simply seeds its own group.
     """
     cand_count = getattr(requirements[candidate], count_attr)
     for group in groups:
+        if any(getattr(requirements[m], count_attr) != cand_count for m in group):
+            continue
         max_size = min(requirements[m].max_group_size for m in group)
         if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
             continue
-        if prefer_same_count and any(getattr(requirements[m], count_attr) != cand_count for m in group):
-            continue
         tentative = group + [candidate]
-        needed = max(getattr(requirements[m], count_attr) for m in tentative)
-        if len(_common_slots(tentative, available_slots)) >= needed:
+        if len(_common_slots(tentative, available_slots)) >= cand_count:
             return group
     return None
 
@@ -108,13 +109,10 @@ def form_pull_out_groups(
     groups: list[list[str]] = []
 
     for candidate in candidates:
-        # Prefer joining a group whose members need the same number of group
-        # sessions; fall back to any feasible group before starting a new one.
+        # Join a group whose members need the same number of group sessions, or
+        # start a new group rather than mixing differing counts.
         group = _find_group(candidate, groups, students, exclusions, requirements,
-                            free_slots, "pull_out_group", prefer_same_count=True)
-        if group is None:
-            group = _find_group(candidate, groups, students, exclusions, requirements,
-                                free_slots, "pull_out_group", prefer_same_count=False)
+                            free_slots, "pull_out_group")
         if group is not None:
             group.append(candidate)
         else:
@@ -153,10 +151,7 @@ def form_push_in_groups(
 
         class_groups = groups_by_class[class_id]
         group = _find_group(candidate, class_groups, students, exclusions, requirements,
-                            push_in_available, "push_in_group", prefer_same_count=True)
-        if group is None:
-            group = _find_group(candidate, class_groups, students, exclusions, requirements,
-                                push_in_available, "push_in_group", prefer_same_count=False)
+                            push_in_available, "push_in_group")
         if group is not None:
             group.append(candidate)
         else:
