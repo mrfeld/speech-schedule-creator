@@ -126,9 +126,9 @@ def build_push_in_slots(
         class_periods = schedules.get(student.class_id, [])
         eligible = {}
         for cp in class_periods:
+            # Note: 8th graders can't be *pulled out* of Science but can still
+            # have push-in during it, so Science is push-in eligible for everyone.
             if cp.class_name in PUSH_IN_ELIGIBLE_CLASSES:
-                if student.grade == 8 and cp.class_name == "Science":
-                    pass  # 8th graders can still have push-in during science
                 eligible[(cp.day, cp.period)] = cp.class_name
         result[name] = eligible
     return result

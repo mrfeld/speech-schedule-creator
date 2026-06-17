@@ -5,7 +5,13 @@ from models import (
     Student, Requirement, Group, ScheduledSession, TimeSlot, DAYS,
     SESSION_PULL_OUT_INDIVIDUAL, SESSION_PULL_OUT_GROUP,
     SESSION_PUSH_IN_INDIVIDUAL, SESSION_PUSH_IN_GROUP,
+    SESSION_LUNCH, SESSION_PREP,
 )
+
+# On retry attempts, sample the teacher's blocked periods from this many of the
+# top-scoring candidate blocks (instead of always taking the single best) so
+# different attempts explore different teacher schedules.
+TEACHER_BLOCK_SAMPLE_POOL = 5
 
 
 def choose_teacher_off_periods(
@@ -72,8 +78,8 @@ def choose_teacher_off_periods(
             # teacher schedules while staying near-optimal.
             best_score = scored[0][0]
             tier = [combo for score, combo in scored if score == best_score]
-            if len(tier) < 5:
-                tier = [combo for _, combo in scored[:5]]
+            if len(tier) < TEACHER_BLOCK_SAMPLE_POOL:
+                tier = [combo for _, combo in scored[:TEACHER_BLOCK_SAMPLE_POOL]]
             best_combo = rng.choice(tier)
 
         lunch_p, prep1, prep2 = best_combo
@@ -82,13 +88,6 @@ def choose_teacher_off_periods(
         prep_slots.add(TimeSlot(day=day, period=prep2))
 
     return lunch_slots, prep_slots
-
-
-def _slots_per_day(slots: list[TimeSlot]) -> dict[str, list[TimeSlot]]:
-    by_day: dict[str, list[TimeSlot]] = defaultdict(list)
-    for s in slots:
-        by_day[s.day].append(s)
-    return dict(by_day)
 
 
 def _common_free_slots(
@@ -153,6 +152,7 @@ def _pick_push_in_slots(
     day_counts: dict[str, int],
     used_slots: set[TimeSlot],
 ) -> list[tuple[TimeSlot, str]]:
+    """Push-in variant of `_pick_slots`: each candidate carries its class name."""
     candidates = [(s, c) for s, c in available if s not in used_slots]
     candidates.sort(key=lambda x: _spread_score(x[0], day_counts))
     picked: list[tuple[TimeSlot, str]] = []
@@ -174,8 +174,17 @@ def build_schedule(
     busy_slots: dict[str, set[tuple]],
     push_in_slots: dict[str, dict[tuple, str]],
     rng: random.Random | None = None,
-) -> tuple[list[ScheduledSession], list[str]]:
+) -> tuple[list[ScheduledSession], list[str], set[TimeSlot], set[TimeSlot]]:
+    """Build one schedule attempt.
 
+    Picks the teacher's blocked periods, then assigns sessions most-constrained
+    first: (1) push-in groups, (2) pull-out groups, (3) push-in individuals,
+    (4) pull-out individuals, (5) backfill of any remaining open slots for students
+    with unmet requirements (re-forming sub-groups of existing groups where
+    possible, else individual sessions). Finally reports per-student shortfalls.
+
+    Returns (sessions, unscheduled, lunch_slots, prep_slots).
+    """
     all_slots = [
         TimeSlot(day=day, period=period)
         for day in DAYS
@@ -385,8 +394,8 @@ def build_schedule(
                 unscheduled.append(f"{label} {name}: {deficit} session(s) unschedulable")
 
     for slot in lunch_slots:
-        sessions.append(ScheduledSession(slot=slot, students=[], session_type="LUNCH"))
+        sessions.append(ScheduledSession(slot=slot, students=[], session_type=SESSION_LUNCH))
     for slot in prep_slots:
-        sessions.append(ScheduledSession(slot=slot, students=[], session_type="PREP"))
+        sessions.append(ScheduledSession(slot=slot, students=[], session_type=SESSION_PREP))
 
     return sessions, unscheduled, lunch_slots, prep_slots

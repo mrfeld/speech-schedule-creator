@@ -33,15 +33,12 @@ def _can_add_to_group(
     max_size: int,
     reqs: dict,
 ) -> bool:
-    if len(group) >= max_size:
+    # `max_size` is the smallest max_group_size among existing members; the
+    # candidate's own limit must be honored too, so the resulting group of
+    # len(group) + 1 stays within every member's cap.
+    if len(group) >= max_size or len(group) >= reqs[candidate].max_group_size:
         return False
-    for member in group:
-        if frozenset({candidate, member}) in exclusions:
-            return False
-        member_max = reqs[member].max_group_size
-        if len(group) >= member_max:
-            return False
-    return True
+    return all(frozenset({candidate, member}) not in exclusions for member in group)
 
 
 def _common_slots(names: list[str], available_slots: dict[str, set]) -> set:
