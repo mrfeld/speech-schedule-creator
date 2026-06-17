@@ -35,9 +35,9 @@ def choose_teacher_off_periods(
             for prep1, prep2 in combinations(remaining, 2):
                 blocked_periods = {lunch_p, prep1, prep2}
                 preserved = sum(
-                    1 for p in periods
+                    sum(1 for busy in busy_slots.values() if (day, p) not in busy)
+                    for p in periods
                     if p not in blocked_periods
-                    and any((day, p) in (all_possible - busy) for busy in busy_slots.values())
                 )
                 if preserved > best_score:
                     best_score = preserved
