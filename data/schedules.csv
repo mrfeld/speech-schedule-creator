@@ -1,0 +1,201 @@
+class_id,day,period,class_name
+8A,Monday,1,ELA
+8A,Monday,2,Math
+8A,Monday,3,Science
+8A,Monday,4,Lunch
+8A,Monday,5,Social Studies
+8A,Monday,6,Gym
+8A,Monday,7,Art
+8A,Monday,8,History
+8A,Tuesday,1,Math
+8A,Tuesday,2,Science
+8A,Tuesday,3,ELA
+8A,Tuesday,4,Lunch
+8A,Tuesday,5,Gym
+8A,Tuesday,6,Social Studies
+8A,Tuesday,7,History
+8A,Tuesday,8,Art
+8A,Wednesday,1,Science
+8A,Wednesday,2,ELA
+8A,Wednesday,3,Math
+8A,Wednesday,4,Lunch
+8A,Wednesday,5,History
+8A,Wednesday,6,Social Studies
+8A,Wednesday,7,Art
+8A,Wednesday,8,Gym
+8A,Thursday,1,Gym
+8A,Thursday,2,Social Studies
+8A,Thursday,3,Math
+8A,Thursday,4,Lunch
+8A,Thursday,5,ELA
+8A,Thursday,6,Science
+8A,Thursday,7,History
+8A,Thursday,8,Art
+8A,Friday,1,Art
+8A,Friday,2,History
+8A,Friday,3,Social Studies
+8A,Friday,4,Lunch
+8A,Friday,5,Math
+8A,Friday,6,ELA
+8A,Friday,7,Gym
+8A,Friday,8,Science
+8B,Monday,1,Math
+8B,Monday,2,ELA
+8B,Monday,3,Gym
+8B,Monday,4,Lunch
+8B,Monday,5,Science
+8B,Monday,6,Social Studies
+8B,Monday,7,History
+8B,Monday,8,Art
+8B,Tuesday,1,ELA
+8B,Tuesday,2,Math
+8B,Tuesday,3,Social Studies
+8B,Tuesday,4,Lunch
+8B,Tuesday,5,History
+8B,Tuesday,6,Gym
+8B,Tuesday,7,Science
+8B,Tuesday,8,Art
+8B,Wednesday,1,Social Studies
+8B,Wednesday,2,Science
+8B,Wednesday,3,ELA
+8B,Wednesday,4,Lunch
+8B,Wednesday,5,Math
+8B,Wednesday,6,Art
+8B,Wednesday,7,History
+8B,Wednesday,8,Gym
+8B,Thursday,1,Science
+8B,Thursday,2,Gym
+8B,Thursday,3,Social Studies
+8B,Thursday,4,Lunch
+8B,Thursday,5,Art
+8B,Thursday,6,Math
+8B,Thursday,7,ELA
+8B,Thursday,8,History
+8B,Friday,1,History
+8B,Friday,2,Art
+8B,Friday,3,Math
+8B,Friday,4,Lunch
+8B,Friday,5,ELA
+8B,Friday,6,Science
+8B,Friday,7,Social Studies
+8B,Friday,8,Gym
+7A,Monday,1,Math
+7A,Monday,2,ELA
+7A,Monday,3,Social Studies
+7A,Monday,4,Lunch
+7A,Monday,5,Science
+7A,Monday,6,Gym
+7A,Monday,7,Art
+7A,Monday,8,History
+7A,Tuesday,1,ELA
+7A,Tuesday,2,Math
+7A,Tuesday,3,Gym
+7A,Tuesday,4,Lunch
+7A,Tuesday,5,History
+7A,Tuesday,6,Social Studies
+7A,Tuesday,7,Science
+7A,Tuesday,8,Art
+7A,Wednesday,1,Science
+7A,Wednesday,2,Social Studies
+7A,Wednesday,3,ELA
+7A,Wednesday,4,Lunch
+7A,Wednesday,5,Math
+7A,Wednesday,6,Art
+7A,Wednesday,7,History
+7A,Wednesday,8,Gym
+7A,Thursday,1,Gym
+7A,Thursday,2,History
+7A,Thursday,3,Math
+7A,Thursday,4,Lunch
+7A,Thursday,5,ELA
+7A,Thursday,6,Social Studies
+7A,Thursday,7,Science
+7A,Thursday,8,Art
+7A,Friday,1,Art
+7A,Friday,2,Science
+7A,Friday,3,Social Studies
+7A,Friday,4,Lunch
+7A,Friday,5,Math
+7A,Friday,6,ELA
+7A,Friday,7,Gym
+7A,Friday,8,History
+7B,Monday,1,ELA
+7B,Monday,2,Gym
+7B,Monday,3,Math
+7B,Monday,4,Lunch
+7B,Monday,5,History
+7B,Monday,6,Social Studies
+7B,Monday,7,Science
+7B,Monday,8,Art
+7B,Tuesday,1,Math
+7B,Tuesday,2,Social Studies
+7B,Tuesday,3,ELA
+7B,Tuesday,4,Lunch
+7B,Tuesday,5,Gym
+7B,Tuesday,6,Science
+7B,Tuesday,7,History
+7B,Tuesday,8,Art
+7B,Wednesday,1,Social Studies
+7B,Wednesday,2,Math
+7B,Wednesday,3,Gym
+7B,Wednesday,4,Lunch
+7B,Wednesday,5,ELA
+7B,Wednesday,6,History
+7B,Wednesday,7,Art
+7B,Wednesday,8,Science
+7B,Thursday,1,Science
+7B,Thursday,2,ELA
+7B,Thursday,3,History
+7B,Thursday,4,Lunch
+7B,Thursday,5,Social Studies
+7B,Thursday,6,Art
+7B,Thursday,7,Math
+7B,Thursday,8,Gym
+7B,Friday,1,Art
+7B,Friday,2,History
+7B,Friday,3,Science
+7B,Friday,4,Lunch
+7B,Friday,5,Gym
+7B,Friday,6,Math
+7B,Friday,7,ELA
+7B,Friday,8,Social Studies
+6A,Monday,1,ELA
+6A,Monday,2,Math
+6A,Monday,3,Social Studies
+6A,Monday,4,Lunch
+6A,Monday,5,Science
+6A,Monday,6,Art
+6A,Monday,7,Gym
+6A,Monday,8,History
+6A,Tuesday,1,Math
+6A,Tuesday,2,ELA
+6A,Tuesday,3,Gym
+6A,Tuesday,4,Lunch
+6A,Tuesday,5,Social Studies
+6A,Tuesday,6,History
+6A,Tuesday,7,Science
+6A,Tuesday,8,Art
+6A,Wednesday,1,Science
+6A,Wednesday,2,Social Studies
+6A,Wednesday,3,ELA
+6A,Wednesday,4,Lunch
+6A,Wednesday,5,Math
+6A,Wednesday,6,Art
+6A,Wednesday,7,History
+6A,Wednesday,8,Gym
+6A,Thursday,1,Gym
+6A,Thursday,2,History
+6A,Thursday,3,Math
+6A,Thursday,4,Lunch
+6A,Thursday,5,ELA
+6A,Thursday,6,Social Studies
+6A,Thursday,7,Science
+6A,Thursday,8,Art
+6A,Friday,1,Art
+6A,Friday,2,Science
+6A,Friday,3,Social Studies
+6A,Friday,4,Lunch
+6A,Friday,5,Math
+6A,Friday,6,ELA
+6A,Friday,7,Gym
+6A,Friday,8,History
