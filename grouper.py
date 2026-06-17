@@ -53,6 +53,18 @@ def _common_slots(names: list[str], available_slots: dict[str, set]) -> set:
     return result
 
 
+def _goal_affinity(candidate: str, group: list[str], students: dict) -> tuple[int, int]:
+    """Goal similarity between a candidate and a group (higher = better match).
+
+    Prioritizes goals shared at the same category *and* level, then goals that merely
+    share a category, summed across the group's members.
+    """
+    cand = students[candidate]
+    level_matches = sum(_shared_goal_level_score(cand, students[m]) for m in group)
+    category_matches = sum(1 for m in group if _shares_goal(cand, students[m]))
+    return (level_matches, category_matches)
+
+
 def _find_group(
     candidate: str,
     groups: list[list[str]],
@@ -63,13 +75,17 @@ def _find_group(
     count_attr: str,
     prefer_same_count: bool,
 ) -> list[str] | None:
-    """Find an existing group the candidate can join, or None.
+    """Find the best existing group the candidate can join, or None.
 
-    When ``prefer_same_count`` is set, only groups whose members all require the
-    same number of group sessions as the candidate are considered. This is a soft
-    preference: callers try a same-count pass first, then fall back to any group.
+    Among all feasible groups, returns the one with the highest goal affinity so
+    students with shared goal categories/levels are clustered together. When
+    ``prefer_same_count`` is set, only groups whose members all require the same
+    number of group sessions as the candidate are considered. Both are soft
+    preferences: callers try a same-count pass first, then fall back to any group.
     """
     cand_count = getattr(requirements[candidate], count_attr)
+    best_group = None
+    best_affinity = None
     for group in groups:
         max_size = min(requirements[m].max_group_size for m in group)
         if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
@@ -78,9 +94,13 @@ def _find_group(
             continue
         tentative = group + [candidate]
         needed = max(getattr(requirements[m], count_attr) for m in tentative)
-        if len(_common_slots(tentative, available_slots)) >= needed:
-            return group
-    return None
+        if len(_common_slots(tentative, available_slots)) < needed:
+            continue
+        affinity = _goal_affinity(candidate, group, students)
+        if best_affinity is None or affinity > best_affinity:
+            best_affinity = affinity
+            best_group = group
+    return best_group
 
 
 def form_pull_out_groups(
