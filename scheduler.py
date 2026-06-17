@@ -227,9 +227,6 @@ def build_schedule(
         picks = _pick_push_in_slots(available, needed, day_counts, used_slots)
         for slot, cls in picks:
             schedule_session(slot, names, SESSION_PUSH_IN_GROUP, cls)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Push-in group {names}: {shortfall} session(s) unschedulable")
 
     # 2. Pull-out group sessions
     for group in pull_out_groups:
@@ -239,9 +236,6 @@ def build_schedule(
         picks = _pick_slots(available, needed, day_counts, used_slots)
         for slot in picks:
             schedule_session(slot, names, SESSION_PULL_OUT_GROUP)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Pull-out group {names}: {shortfall} session(s) unschedulable")
 
     # 3. Push-in individual sessions
     push_in_indiv_students = sorted(
@@ -258,9 +252,6 @@ def build_schedule(
         picks = _pick_push_in_slots(available, needed, day_counts, used_slots)
         for slot, cls in picks:
             schedule_session(slot, [name], SESSION_PUSH_IN_INDIVIDUAL, cls)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Push-in individual {name}: {shortfall} session(s) unschedulable")
 
     # 4. Pull-out individual sessions
     pull_out_indiv_students = sorted(
@@ -277,9 +268,6 @@ def build_schedule(
         picks = _pick_slots(available, needed, day_counts, used_slots)
         for slot in picks:
             schedule_session(slot, [name], SESSION_PULL_OUT_INDIVIDUAL)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Pull-out individual {name}: {shortfall} session(s) unschedulable")
 
     # 5. Fill remaining open slots by splitting groups (only for students with unmet requirements)
     # Build student → group-members lookups so we can form sub-groups from existing groups.
@@ -379,6 +367,22 @@ def build_schedule(
             name, cls = pi_indiv[0]
             schedule_session(slot, [name], SESSION_PUSH_IN_INDIVIDUAL, cls)
             continue
+
+    # Report shortfalls per student against their actual requirement, computed
+    # after backfill. Group requirements are tracked per member, so a member who
+    # needs more group sessions than the rest of their group is reported here even
+    # if the shared group met its smaller common count.
+    label_by_type = {
+        SESSION_PUSH_IN_GROUP: "Push-in group",
+        SESSION_PULL_OUT_GROUP: "Pull-out group",
+        SESSION_PUSH_IN_INDIVIDUAL: "Push-in individual",
+        SESSION_PULL_OUT_INDIVIDUAL: "Pull-out individual",
+    }
+    for name in sorted(remaining):
+        for stype, label in label_by_type.items():
+            deficit = remaining[name].get(stype, 0)
+            if deficit > 0:
+                unscheduled.append(f"{label} {name}: {deficit} session(s) unschedulable")
 
     for slot in lunch_slots:
         sessions.append(ScheduledSession(slot=slot, students=[], session_type="LUNCH"))

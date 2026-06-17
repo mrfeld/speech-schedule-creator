@@ -53,6 +53,36 @@ def _common_slots(names: list[str], available_slots: dict[str, set]) -> set:
     return result
 
 
+def _find_group(
+    candidate: str,
+    groups: list[list[str]],
+    students: dict,
+    exclusions: set[frozenset],
+    requirements: dict,
+    available_slots: dict[str, set],
+    count_attr: str,
+    prefer_same_count: bool,
+) -> list[str] | None:
+    """Find an existing group the candidate can join, or None.
+
+    When ``prefer_same_count`` is set, only groups whose members all require the
+    same number of group sessions as the candidate are considered. This is a soft
+    preference: callers try a same-count pass first, then fall back to any group.
+    """
+    cand_count = getattr(requirements[candidate], count_attr)
+    for group in groups:
+        max_size = min(requirements[m].max_group_size for m in group)
+        if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
+            continue
+        if prefer_same_count and any(getattr(requirements[m], count_attr) != cand_count for m in group):
+            continue
+        tentative = group + [candidate]
+        needed = max(getattr(requirements[m], count_attr) for m in tentative)
+        if len(_common_slots(tentative, available_slots)) >= needed:
+            return group
+    return None
+
+
 def form_pull_out_groups(
     students: dict,
     requirements: dict,
@@ -78,18 +108,16 @@ def form_pull_out_groups(
     groups: list[list[str]] = []
 
     for candidate in candidates:
-        placed = False
-        for group in groups:
-            max_size = min(requirements[m].max_group_size for m in group)
-            if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
-                continue
-            tentative = group + [candidate]
-            needed = max(requirements[m].pull_out_group for m in tentative)
-            if len(_common_slots(tentative, free_slots)) >= needed:
-                group.append(candidate)
-                placed = True
-                break
-        if not placed:
+        # Prefer joining a group whose members need the same number of group
+        # sessions; fall back to any feasible group before starting a new one.
+        group = _find_group(candidate, groups, students, exclusions, requirements,
+                            free_slots, "pull_out_group", prefer_same_count=True)
+        if group is None:
+            group = _find_group(candidate, groups, students, exclusions, requirements,
+                                free_slots, "pull_out_group", prefer_same_count=False)
+        if group is not None:
+            group.append(candidate)
+        else:
             groups.append([candidate])
 
     return [Group(students=g, session_type=SESSION_PULL_OUT_GROUP) for g in groups if len(g) > 0]
@@ -124,18 +152,14 @@ def form_push_in_groups(
             groups_by_class[class_id] = []
 
         class_groups = groups_by_class[class_id]
-        placed = False
-        for group in class_groups:
-            max_size = min(requirements[m].max_group_size for m in group)
-            if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
-                continue
-            tentative = group + [candidate]
-            needed = max(requirements[m].push_in_group for m in tentative)
-            if len(_common_slots(tentative, push_in_available)) >= needed:
-                group.append(candidate)
-                placed = True
-                break
-        if not placed:
+        group = _find_group(candidate, class_groups, students, exclusions, requirements,
+                            push_in_available, "push_in_group", prefer_same_count=True)
+        if group is None:
+            group = _find_group(candidate, class_groups, students, exclusions, requirements,
+                                push_in_available, "push_in_group", prefer_same_count=False)
+        if group is not None:
+            group.append(candidate)
+        else:
             class_groups.append([candidate])
 
     result = []
