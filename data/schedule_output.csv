@@ -1,9 +1,9 @@
 Period,Monday,Tuesday,Wednesday,Thursday,Friday
-P1,PREP,PREP,"Carol, Grace, Liam [POG]",PREP,"Emma, Kate, Noah, Peter [POG]"
-P2,PREP,PREP,PREP,"Maya, Quinn [POG]",
-P3,Olivia [PO],Carol [PI],PREP,"Tyler, James [PIG]","David, Frank, Sofia [POG]"
+P1,PREP,PREP,Henry [PI],PREP,"Emma, David, Carol [POG]"
+P2,PREP,PREP,PREP,Olivia [PO],"Sofia, Peter, Grace [POG]"
+P3,Isabella [PI],Tyler [PO],PREP,Carol [PI],Kate [PO]
 P4,LUNCH,LUNCH,LUNCH,LUNCH,LUNCH
-P5,"Alice, Bob, Isabella [PIG]",Henry [PI],Peter [PO],PREP,PREP
-P6,Tyler [PO],"Alice, Bob, Isabella [PIG]","David, Frank, Sofia [POG]",Kate [PO],PREP
-P7,Maya [PI],Ryan [PI],"Maya, Quinn [POG]",Olivia [PI],"Tyler, James [PIG]"
-P8,"Carol, Grace, Liam [POG]","Emma, Kate, Noah, Peter [POG]",Ryan [PO],Henry [PO],Isabella [PI]
+P5,Ryan [PI],"Emma, David, Carol [POG]",Ryan [PO],PREP,PREP
+P6,"James, Tyler [PIG]","Isabella, Bob, Alice [PIG]","Sofia, Peter, Grace [POG]","Noah, Kate, Liam [POG]",PREP
+P7,"Quinn, Maya, Frank [POG]",Olivia [PI],"Quinn, Maya, Frank [POG]","James, Tyler [PIG]",Maya [PI]
+P8,Peter [PO],"Noah, Kate, Liam [POG]",,Henry [PO],"Isabella, Bob, Alice [PIG]"
