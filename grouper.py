@@ -33,15 +33,12 @@ def _can_add_to_group(
     max_size: int,
     reqs: dict,
 ) -> bool:
-    if len(group) >= max_size:
+    # `max_size` is the smallest max_group_size among existing members; the
+    # candidate's own limit must be honored too, so the resulting group of
+    # len(group) + 1 stays within every member's cap.
+    if len(group) >= max_size or len(group) >= reqs[candidate].max_group_size:
         return False
-    for member in group:
-        if frozenset({candidate, member}) in exclusions:
-            return False
-        member_max = reqs[member].max_group_size
-        if len(group) >= member_max:
-            return False
-    return True
+    return all(frozenset({candidate, member}) not in exclusions for member in group)
 
 
 def _common_slots(names: list[str], available_slots: dict[str, set]) -> set:
@@ -51,6 +48,56 @@ def _common_slots(names: list[str], available_slots: dict[str, set]) -> set:
     for name in names[1:]:
         result &= available_slots[name]
     return result
+
+
+def _goal_affinity(candidate: str, group: list[str], students: dict) -> tuple[int, int]:
+    """Goal similarity between a candidate and a group (higher = better match).
+
+    Prioritizes goals shared at the same category *and* level, then goals that merely
+    share a category, summed across the group's members.
+    """
+    cand = students[candidate]
+    level_matches = sum(_shared_goal_level_score(cand, students[m]) for m in group)
+    category_matches = sum(1 for m in group if _shares_goal(cand, students[m]))
+    return (level_matches, category_matches)
+
+
+def _find_group(
+    candidate: str,
+    groups: list[list[str]],
+    students: dict,
+    exclusions: set[frozenset],
+    requirements: dict,
+    available_slots: dict[str, set],
+    count_attr: str,
+    prefer_same_count: bool,
+) -> list[str] | None:
+    """Find the best existing group the candidate can join, or None.
+
+    Among all feasible groups, returns the one with the highest goal affinity so
+    students with shared goal categories/levels are clustered together. When
+    ``prefer_same_count`` is set, only groups whose members all require the same
+    number of group sessions as the candidate are considered. Both are soft
+    preferences: callers try a same-count pass first, then fall back to any group.
+    """
+    cand_count = getattr(requirements[candidate], count_attr)
+    best_group = None
+    best_affinity = None
+    for group in groups:
+        max_size = min(requirements[m].max_group_size for m in group)
+        if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
+            continue
+        if prefer_same_count and any(getattr(requirements[m], count_attr) != cand_count for m in group):
+            continue
+        tentative = group + [candidate]
+        needed = max(getattr(requirements[m], count_attr) for m in tentative)
+        if len(_common_slots(tentative, available_slots)) < needed:
+            continue
+        affinity = _goal_affinity(candidate, group, students)
+        if best_affinity is None or affinity > best_affinity:
+            best_affinity = affinity
+            best_group = group
+    return best_group
 
 
 def form_pull_out_groups(
@@ -78,18 +125,16 @@ def form_pull_out_groups(
     groups: list[list[str]] = []
 
     for candidate in candidates:
-        placed = False
-        for group in groups:
-            max_size = min(requirements[m].max_group_size for m in group)
-            if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
-                continue
-            tentative = group + [candidate]
-            needed = max(requirements[m].pull_out_group for m in tentative)
-            if len(_common_slots(tentative, free_slots)) >= needed:
-                group.append(candidate)
-                placed = True
-                break
-        if not placed:
+        # Prefer joining a group whose members need the same number of group
+        # sessions; fall back to any feasible group before starting a new one.
+        group = _find_group(candidate, groups, students, exclusions, requirements,
+                            free_slots, "pull_out_group", prefer_same_count=True)
+        if group is None:
+            group = _find_group(candidate, groups, students, exclusions, requirements,
+                                free_slots, "pull_out_group", prefer_same_count=False)
+        if group is not None:
+            group.append(candidate)
+        else:
             groups.append([candidate])
 
     return [Group(students=g, session_type=SESSION_PULL_OUT_GROUP) for g in groups if len(g) > 0]
@@ -124,18 +169,14 @@ def form_push_in_groups(
             groups_by_class[class_id] = []
 
         class_groups = groups_by_class[class_id]
-        placed = False
-        for group in class_groups:
-            max_size = min(requirements[m].max_group_size for m in group)
-            if not _can_add_to_group(candidate, group, students, exclusions, max_size, requirements):
-                continue
-            tentative = group + [candidate]
-            needed = max(requirements[m].push_in_group for m in tentative)
-            if len(_common_slots(tentative, push_in_available)) >= needed:
-                group.append(candidate)
-                placed = True
-                break
-        if not placed:
+        group = _find_group(candidate, class_groups, students, exclusions, requirements,
+                            push_in_available, "push_in_group", prefer_same_count=True)
+        if group is None:
+            group = _find_group(candidate, class_groups, students, exclusions, requirements,
+                                push_in_available, "push_in_group", prefer_same_count=False)
+        if group is not None:
+            group.append(candidate)
+        else:
             class_groups.append([candidate])
 
     result = []

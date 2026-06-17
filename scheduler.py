@@ -5,19 +5,48 @@ from models import (
     Student, Requirement, Group, ScheduledSession, TimeSlot, DAYS,
     SESSION_PULL_OUT_INDIVIDUAL, SESSION_PULL_OUT_GROUP,
     SESSION_PUSH_IN_INDIVIDUAL, SESSION_PUSH_IN_GROUP,
+    SESSION_LUNCH, SESSION_PREP,
 )
+
+# On retry attempts, sample the teacher's blocked periods from this many of the
+# top-scoring candidate blocks (instead of always taking the single best) so
+# different attempts explore different teacher schedules.
+TEACHER_BLOCK_SAMPLE_POOL = 5
 
 
 def choose_teacher_off_periods(
     all_slots: list[TimeSlot],
     busy_slots: dict[str, set[tuple]],
     push_in_slots: dict[str, dict[tuple, str]],
+    requirements: dict[str, Requirement],
+    rng: random.Random | None = None,
 ) -> tuple[set[TimeSlot], set[TimeSlot]]:
     """Picks 3 blocked teacher periods per day (1 lunch in P4-6, 2 prep any).
-    Returns (lunch_slots, prep_slots)."""
+
+    The blocked set is chosen to preserve the periods with the most *session
+    demand* — i.e. open periods where students who still need pull-out are free,
+    or where students who need push-in have an eligible class. With ``rng`` set,
+    a near-best combo is sampled (rather than the single best) so retry attempts
+    explore different teacher schedules. Returns (lunch_slots, prep_slots)."""
+    # Students who actually need each session family — periods are only valuable
+    # to the extent that someone needing a session can use them.
+    pull_out_students = [
+        n for n, r in requirements.items()
+        if r.pull_out_individual + r.pull_out_group > 0
+    ]
+    push_in_students = [
+        n for n, r in requirements.items()
+        if r.push_in_individual + r.push_in_group > 0
+    ]
+
+    def period_demand(day: str, period: int) -> int:
+        key = (day, period)
+        po = sum(1 for n in pull_out_students if key not in busy_slots.get(n, set()))
+        pi = sum(1 for n in push_in_students if key in push_in_slots.get(n, {}))
+        return po + pi
+
     lunch_slots: set[TimeSlot] = set()
     prep_slots: set[TimeSlot] = set()
-    all_possible = {(slot.day, slot.period) for slot in all_slots}
 
     for day in DAYS:
         day_slots = [s for s in all_slots if s.day == day]
@@ -27,36 +56,38 @@ def choose_teacher_off_periods(
         if not lunch_options:
             lunch_options = [4]
 
-        best_combo = None
-        best_score = -1
+        demand = {p: period_demand(day, p) for p in periods}
 
+        scored: list[tuple[int, tuple[int, int, int]]] = []
         for lunch_p in lunch_options:
             remaining = [p for p in periods if p != lunch_p]
             for prep1, prep2 in combinations(remaining, 2):
                 blocked_periods = {lunch_p, prep1, prep2}
-                preserved = sum(
-                    sum(1 for busy in busy_slots.values() if (day, p) not in busy)
-                    for p in periods
-                    if p not in blocked_periods
-                )
-                if preserved > best_score:
-                    best_score = preserved
-                    best_combo = (lunch_p, prep1, prep2)
+                # Preserve as much demand as possible in the open (unblocked) periods.
+                preserved = sum(d for p, d in demand.items() if p not in blocked_periods)
+                scored.append((preserved, (lunch_p, prep1, prep2)))
 
-        if best_combo:
-            lunch_p, prep1, prep2 = best_combo
-            lunch_slots.add(TimeSlot(day=day, period=lunch_p))
-            prep_slots.add(TimeSlot(day=day, period=prep1))
-            prep_slots.add(TimeSlot(day=day, period=prep2))
+        if not scored:
+            continue
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        if rng is None:
+            best_combo = scored[0][1]
+        else:
+            # Sample among the top-tier combos so different attempts try different
+            # teacher schedules while staying near-optimal.
+            best_score = scored[0][0]
+            tier = [combo for score, combo in scored if score == best_score]
+            if len(tier) < TEACHER_BLOCK_SAMPLE_POOL:
+                tier = [combo for _, combo in scored[:TEACHER_BLOCK_SAMPLE_POOL]]
+            best_combo = rng.choice(tier)
+
+        lunch_p, prep1, prep2 = best_combo
+        lunch_slots.add(TimeSlot(day=day, period=lunch_p))
+        prep_slots.add(TimeSlot(day=day, period=prep1))
+        prep_slots.add(TimeSlot(day=day, period=prep2))
 
     return lunch_slots, prep_slots
-
-
-def _slots_per_day(slots: list[TimeSlot]) -> dict[str, list[TimeSlot]]:
-    by_day: dict[str, list[TimeSlot]] = defaultdict(list)
-    for s in slots:
-        by_day[s.day].append(s)
-    return dict(by_day)
 
 
 def _common_free_slots(
@@ -121,6 +152,7 @@ def _pick_push_in_slots(
     day_counts: dict[str, int],
     used_slots: set[TimeSlot],
 ) -> list[tuple[TimeSlot, str]]:
+    """Push-in variant of `_pick_slots`: each candidate carries its class name."""
     candidates = [(s, c) for s, c in available if s not in used_slots]
     candidates.sort(key=lambda x: _spread_score(x[0], day_counts))
     picked: list[tuple[TimeSlot, str]] = []
@@ -142,15 +174,26 @@ def build_schedule(
     busy_slots: dict[str, set[tuple]],
     push_in_slots: dict[str, dict[tuple, str]],
     rng: random.Random | None = None,
-) -> tuple[list[ScheduledSession], list[str]]:
+) -> tuple[list[ScheduledSession], list[str], set[TimeSlot], set[TimeSlot]]:
+    """Build one schedule attempt.
 
+    Picks the teacher's blocked periods, then assigns sessions most-constrained
+    first: (1) push-in groups, (2) pull-out groups, (3) push-in individuals,
+    (4) pull-out individuals, (5) backfill of any remaining open slots for students
+    with unmet requirements (re-forming sub-groups of existing groups where
+    possible, else individual sessions). Finally reports per-student shortfalls.
+
+    Returns (sessions, unscheduled, lunch_slots, prep_slots).
+    """
     all_slots = [
         TimeSlot(day=day, period=period)
         for day in DAYS
         for period in range(1, 9)
     ]
 
-    lunch_slots, prep_slots = choose_teacher_off_periods(all_slots, busy_slots, push_in_slots)
+    lunch_slots, prep_slots = choose_teacher_off_periods(
+        all_slots, busy_slots, push_in_slots, requirements, rng=rng
+    )
     teacher_blocked = lunch_slots | prep_slots
     teacher_available = {s for s in all_slots if s not in teacher_blocked}
 
@@ -193,9 +236,6 @@ def build_schedule(
         picks = _pick_push_in_slots(available, needed, day_counts, used_slots)
         for slot, cls in picks:
             schedule_session(slot, names, SESSION_PUSH_IN_GROUP, cls)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Push-in group {names}: {shortfall} session(s) unschedulable")
 
     # 2. Pull-out group sessions
     for group in pull_out_groups:
@@ -205,9 +245,6 @@ def build_schedule(
         picks = _pick_slots(available, needed, day_counts, used_slots)
         for slot in picks:
             schedule_session(slot, names, SESSION_PULL_OUT_GROUP)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Pull-out group {names}: {shortfall} session(s) unschedulable")
 
     # 3. Push-in individual sessions
     push_in_indiv_students = sorted(
@@ -224,9 +261,6 @@ def build_schedule(
         picks = _pick_push_in_slots(available, needed, day_counts, used_slots)
         for slot, cls in picks:
             schedule_session(slot, [name], SESSION_PUSH_IN_INDIVIDUAL, cls)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Push-in individual {name}: {shortfall} session(s) unschedulable")
 
     # 4. Pull-out individual sessions
     pull_out_indiv_students = sorted(
@@ -243,9 +277,6 @@ def build_schedule(
         picks = _pick_slots(available, needed, day_counts, used_slots)
         for slot in picks:
             schedule_session(slot, [name], SESSION_PULL_OUT_INDIVIDUAL)
-        shortfall = needed - len(picks)
-        if shortfall > 0:
-            unscheduled.append(f"Pull-out individual {name}: {shortfall} session(s) unschedulable")
 
     # 5. Fill remaining open slots by splitting groups (only for students with unmet requirements)
     # Build student → group-members lookups so we can form sub-groups from existing groups.
@@ -346,9 +377,25 @@ def build_schedule(
             schedule_session(slot, [name], SESSION_PUSH_IN_INDIVIDUAL, cls)
             continue
 
+    # Report shortfalls per student against their actual requirement, computed
+    # after backfill. Group requirements are tracked per member, so a member who
+    # needs more group sessions than the rest of their group is reported here even
+    # if the shared group met its smaller common count.
+    label_by_type = {
+        SESSION_PUSH_IN_GROUP: "Push-in group",
+        SESSION_PULL_OUT_GROUP: "Pull-out group",
+        SESSION_PUSH_IN_INDIVIDUAL: "Push-in individual",
+        SESSION_PULL_OUT_INDIVIDUAL: "Pull-out individual",
+    }
+    for name in sorted(remaining):
+        for stype, label in label_by_type.items():
+            deficit = remaining[name].get(stype, 0)
+            if deficit > 0:
+                unscheduled.append(f"{label} {name}: {deficit} session(s) unschedulable")
+
     for slot in lunch_slots:
-        sessions.append(ScheduledSession(slot=slot, students=[], session_type="LUNCH"))
+        sessions.append(ScheduledSession(slot=slot, students=[], session_type=SESSION_LUNCH))
     for slot in prep_slots:
-        sessions.append(ScheduledSession(slot=slot, students=[], session_type="PREP"))
+        sessions.append(ScheduledSession(slot=slot, students=[], session_type=SESSION_PREP))
 
     return sessions, unscheduled, lunch_slots, prep_slots

@@ -12,6 +12,10 @@ SESSION_PULL_OUT_GROUP = "pull_out_group"
 SESSION_PUSH_IN_INDIVIDUAL = "push_in_individual"
 SESSION_PUSH_IN_GROUP = "push_in_group"
 
+# Non-instructional teacher blocks (not student sessions).
+SESSION_LUNCH = "LUNCH"
+SESSION_PREP = "PREP"
+
 SESSION_TAGS = {
     SESSION_PULL_OUT_INDIVIDUAL: "PO",
     SESSION_PULL_OUT_GROUP: "POG",

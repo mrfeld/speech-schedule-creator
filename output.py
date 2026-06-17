@@ -1,12 +1,16 @@
 import csv
-from models import ScheduledSession, TimeSlot, DAYS, SESSION_TAGS
+from models import (
+    ScheduledSession, TimeSlot, DAYS, SESSION_TAGS, SESSION_LUNCH, SESSION_PREP,
+    SESSION_PUSH_IN_INDIVIDUAL, SESSION_PUSH_IN_GROUP,
+    SESSION_PULL_OUT_INDIVIDUAL, SESSION_PULL_OUT_GROUP,
+)
 
 
 def _cell_text(sessions: list[ScheduledSession]) -> str:
     if not sessions:
         return ""
     s = sessions[0]
-    if s.session_type in ("LUNCH", "PREP"):
+    if s.session_type in (SESSION_LUNCH, SESSION_PREP):
         return s.session_type
     tag = SESSION_TAGS.get(s.session_type, s.session_type)
     names = ", ".join(s.students)
@@ -60,7 +64,7 @@ def print_summary(
     # Count per student
     counts: dict[str, dict[str, int]] = {}
     for s in sessions:
-        if s.session_type in ("LUNCH", "PREP"):
+        if s.session_type in (SESSION_LUNCH, SESSION_PREP):
             continue
         for name in s.students:
             counts.setdefault(name, {})
@@ -69,10 +73,6 @@ def print_summary(
     for name, req in sorted(requirements.items()):
         student_counts = counts.get(name, {})
         parts = []
-        from models import (
-            SESSION_PUSH_IN_INDIVIDUAL, SESSION_PUSH_IN_GROUP,
-            SESSION_PULL_OUT_INDIVIDUAL, SESSION_PULL_OUT_GROUP,
-        )
         for stype, label, required in [
             (SESSION_PUSH_IN_INDIVIDUAL, "PI", req.push_in_individual),
             (SESSION_PUSH_IN_GROUP, "PIG", req.push_in_group),
