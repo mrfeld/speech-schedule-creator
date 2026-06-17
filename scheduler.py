@@ -317,40 +317,6 @@ def build_schedule(
             schedule_session(slot, [name], SESSION_PUSH_IN_INDIVIDUAL, cls)
             continue
 
-        # All requirements met — fill by scheduling the largest free subgroup of an existing group.
-        best_bonus_po: list[str] = []
-        seen_bonus_po: set[frozenset] = set()
-        for name in student_po_group:
-            gkey = frozenset(student_po_group[name])
-            if gkey in seen_bonus_po:
-                continue
-            seen_bonus_po.add(gkey)
-            free_sub = [m for m in student_po_group[name]
-                        if key not in busy_slots.get(m, set())]
-            if len(free_sub) > len(best_bonus_po):
-                best_bonus_po = free_sub
-        if best_bonus_po:
-            schedule_session(slot, best_bonus_po, SESSION_PULL_OUT_GROUP)
-            continue
-
-        best_bonus_pi: list[str] = []
-        best_bonus_pi_class: str = ""
-        seen_bonus_pi: set[frozenset] = set()
-        for name in student_pi_group:
-            gkey = frozenset(student_pi_group[name])
-            if gkey in seen_bonus_pi:
-                continue
-            seen_bonus_pi.add(gkey)
-            free_sub = [m for m in student_pi_group[name]
-                        if key in push_in_slots.get(m, {})]
-            if free_sub:
-                cls = push_in_slots[free_sub[0]].get(key, "")
-                if cls and len(free_sub) > len(best_bonus_pi):
-                    best_bonus_pi = free_sub
-                    best_bonus_pi_class = cls
-        if best_bonus_pi:
-            schedule_session(slot, best_bonus_pi, SESSION_PUSH_IN_GROUP, best_bonus_pi_class)
-
     for slot in lunch_slots:
         sessions.append(ScheduledSession(slot=slot, students=[], session_type="LUNCH"))
     for slot in prep_slots:
